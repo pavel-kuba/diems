@@ -163,7 +163,14 @@ export default function SavedPanel() {
             <p className="truncate text-xs text-ink-muted">
               {[f.company, f.title].filter(Boolean).join(" · ")}
             </p>
-            <p className="truncate text-xs text-ink-faint">{f.email}</p>
+            {f.email && (
+              <a
+                href={`mailto:${f.email}`}
+                className="block truncate text-xs text-ink-muted transition hover:text-accent hover:underline"
+              >
+                {f.email}
+              </a>
+            )}
           </div>
           <div className="flex shrink-0 items-center gap-1">
             {f.linkedin && (
