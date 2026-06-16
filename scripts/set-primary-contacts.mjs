@@ -17,6 +17,11 @@
  *     generic company inbox (emailType=company, no person) ... -8
  *   email_confidence: + (confidence / 20)   // tiny tie-breaker, 0–5
  *
+ * Eligibility: contacts whose outreach is halted (stopped / bounced /
+ * unsubscribed) are excluded, so a departed or dead address is never the ★
+ * primary — unless EVERY contact at the company is halted, in which case the
+ * best of them is kept so a covered company always has exactly one primary.
+ *
  * Usage: node scripts/set-primary-contacts.mjs
  */
 import Database from "better-sqlite3";
@@ -52,21 +57,40 @@ const clearAll = db.prepare("UPDATE contacts SET is_primary = 0 WHERE company_sl
 const setPrimary = db.prepare("UPDATE contacts SET is_primary = 1 WHERE id = ?");
 const getContacts = db.prepare("SELECT * FROM contacts WHERE company_slug = ?");
 
+// Contacts whose outreach is halted (terminal status) must never be the ★
+// primary — a bounced / stopped / unsubscribed address is dead for outreach.
+const haltedIds = new Set(
+  db
+    .prepare("SELECT contact_id FROM outreach WHERE status IN ('stopped','bounced','unsubscribed')")
+    .all()
+    .map((r) => r.contact_id)
+);
+
 let flagged = 0;
+let fallbacks = 0;
 const tx = db.transaction(() => {
   for (const { company_slug } of slugs) {
     const rows = getContacts.all(company_slug);
     if (!rows.length) continue;
-    const best = rows.reduce((a, b) => (score(b) > score(a) ? b : a));
+    // Prefer contacts still in play; fall back to the halted ones only if the
+    // whole company is halted, so every covered company keeps exactly one ★.
+    const live = rows.filter((c) => !haltedIds.has(c.id));
+    const pool = live.length ? live : rows;
+    const best = pool.reduce((a, b) => (score(b) > score(a) ? b : a));
     clearAll.run(company_slug);
     setPrimary.run(best.id);
     flagged++;
+    if (!live.length) fallbacks++;
+    const note = live.length ? "" : " (all halted — fallback, needs re-research)";
     console.log(
-      `★ ${best.name} (${best.title || "?"}) [${best.email_status || "no-email"}] → ${company_slug}`
+      `★ ${best.name} (${best.title || "?"}) [${best.email_status || "no-email"}]${note} → ${company_slug}`
     );
   }
 });
 tx();
 
-console.log(`\nFlagged ${flagged} primary contact(s), one per company.`);
+console.log(
+  `\nFlagged ${flagged} primary contact(s), one per company` +
+    (fallbacks ? ` — ${fallbacks} are all-halted fallbacks needing re-research.` : ".")
+);
 db.close();
