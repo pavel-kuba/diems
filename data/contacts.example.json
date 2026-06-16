@@ -1,0 +1,40 @@
+[
+  {
+    "companySlug": "example-monitoring-co",
+    "name": "Jane Example",
+    "firstName": "Jane",
+    "title": "Managing Director",
+    "seniority": "executive",
+    "department": "executive",
+    "email": "jane@example.com",
+    "emailType": "personal",
+    "emailStatus": "valid",
+    "emailConfidence": 95,
+    "verifiedAt": "2026-01-01T00:00:00Z",
+    "phone": "+1 555 0100",
+    "linkedin": "https://www.linkedin.com/in/example-jane",
+    "location": "Example City, Country",
+    "roleConfirmedAt": "2026-01-01",
+    "source": "Fake row — illustrates the save-contacts.mjs format. Not a real person.",
+    "notes": "Copy this shape to stage your own research, then run `node scripts/save-contacts.mjs data/your-file.json`. companySlug (or companyWebsite) must match a row already imported into the companies table."
+  },
+  {
+    "companySlug": "example-monitoring-co",
+    "name": "Sam Sample",
+    "firstName": "Sam",
+    "title": "Head of Marketing",
+    "seniority": "senior",
+    "department": "marketing",
+    "email": null,
+    "emailType": null,
+    "emailStatus": "unknown",
+    "emailConfidence": null,
+    "verifiedAt": null,
+    "phone": null,
+    "linkedin": "https://www.linkedin.com/in/example-sam",
+    "location": "Example City, Country",
+    "roleConfirmedAt": "2026-01-01",
+    "source": "Fake row — LinkedIn-only contact (no deliverable email).",
+    "notes": "When no email verifies, leave email null and keep the LinkedIn URL — the app shows a \"LinkedIn only\" badge and the contact is excluded from sends."
+  }
+]

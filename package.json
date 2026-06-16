@@ -1,0 +1,49 @@
+{
+  "name": "diems",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local, single-operator outreach tool for monitoring-station companies: research contacts, compose highlightable emails, send via Resend, and run a manual follow-up sequence.",
+  "license": "MIT",
+  "author": "Pavel Kuba",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pavel-kuba/diems.git"
+  },
+  "homepage": "https://github.com/pavel-kuba/diems#readme",
+  "bugs": "https://github.com/pavel-kuba/diems/issues",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@tiptap/extension-color": "^3.26.0",
+    "@tiptap/extension-highlight": "^3.26.0",
+    "@tiptap/extension-link": "^3.26.0",
+    "@tiptap/extension-text-style": "^3.26.0",
+    "@tiptap/extension-underline": "^3.26.0",
+    "@tiptap/pm": "^3.26.0",
+    "@tiptap/react": "^3.26.0",
+    "@tiptap/starter-kit": "^3.26.0",
+    "better-sqlite3": "^12.10.0",
+    "next": "16.2.7",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "resend": "^6.12.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.7",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}

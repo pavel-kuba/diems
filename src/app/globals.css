@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* Design tokens — Apple-style: SF system type, #f5f5f7 canvas, white */
+/* cards with hairline borders, Apple blue as the single accent.      */
+/* ------------------------------------------------------------------ */
+
+@theme inline {
+  /* surfaces */
+  --color-paper: #f5f5f7; /* app background (Apple gray) */
+  --color-surface: #ffffff; /* cards, inputs */
+  /* text */
+  --color-ink: #1d1d1f;
+  --color-ink-muted: #6e6e73;
+  --color-ink-faint: #86868b;
+  /* lines */
+  --color-line: #d2d2d7;
+  --color-line-strong: #b8b8bf;
+  /* accent — Apple blue */
+  --color-accent: #0071e3;
+  --color-accent-deep: #0077ed;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Helvetica Neue", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+
+body {
+  color: var(--color-ink);
+  background-color: var(--color-paper);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ------------------------------------------------------------------ */
+/* Shared component recipes (kept here so every tab styles the same). */
+/* ------------------------------------------------------------------ */
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line/60 bg-surface shadow-[0_1px_3px_rgba(0,0,0,0.04)];
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-line/70 bg-surface px-3 py-1.5 text-[13px] text-ink placeholder:text-ink-faint outline-none transition focus:border-accent focus:ring-[3px] focus:ring-accent/15;
+  }
+
+  .btn-primary {
+    @apply rounded-full bg-accent px-4 py-2 text-[13px] font-medium text-white transition hover:bg-accent-deep active:opacity-80 disabled:opacity-40 disabled:hover:bg-accent;
+  }
+
+  .chip {
+    @apply rounded-full bg-paper px-2.5 py-1 text-[11px] font-medium text-ink transition hover:bg-line/50 active:opacity-70;
+  }
+
+  .link {
+    @apply text-accent transition hover:underline;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Editor content (Tailwind preflight strips default tag styling, so  */
+/* we restore what the rich-text editor needs).                       */
+/* ------------------------------------------------------------------ */
+
+.prose-email p {
+  margin: 0 0 0.75em;
+}
+.prose-email p:last-child {
+  margin-bottom: 0;
+}
+.prose-email h1,
+.prose-email h2,
+.prose-email h3 {
+  font-weight: 700;
+  line-height: 1.25;
+  margin: 0.6em 0 0.4em;
+}
+.prose-email h1 {
+  font-size: 1.6em;
+}
+.prose-email h2 {
+  font-size: 1.3em;
+}
+.prose-email h3 {
+  font-size: 1.1em;
+}
+.prose-email ul,
+.prose-email ol {
+  margin: 0 0 0.75em;
+  padding-left: 1.5em;
+}
+.prose-email ul {
+  list-style: disc;
+}
+.prose-email ol {
+  list-style: decimal;
+}
+.prose-email li {
+  margin: 0.2em 0;
+}
+.prose-email a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+.prose-email mark {
+  border-radius: 3px;
+  padding: 0.12em 0.18em;
+}
+.prose-email:focus {
+  outline: none;
+}
+.prose-email p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-ink-faint);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
