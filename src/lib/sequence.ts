@@ -27,8 +27,9 @@ export const MAX_STEP = 3;
 export const FOLLOWUP_BODIES: Record<number, string> = {
   1:
     "<p>Hi [First Name],</p>" +
-    "<p>No worries if the timing's off — just didn't want this to get buried. " +
-    "Even a quick yes/no helps, and I'll keep it short and fully async if you're up for it.</p>" +
+    "<p>Happy to make this easy: I can send over the 10 questions now, and you " +
+    "reply whenever you have a few minutes — you approve every quote before " +
+    "anything's published. Want me to send them?</p>" +
     "<p>Best,</p>" +
     SIGNATURE_HTML,
   2:
