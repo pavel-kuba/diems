@@ -143,78 +143,78 @@ export default function SavedPanel() {
     const ob = outreachBadge(outreach.get(f.contact_id), false);
     return (
       <div key={f.contact_id} className="min-w-0">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-ink">
-              <span className="truncate">{f.name}</span>
-              <span
-                className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${st.cls}`}
-              >
-                {f.email ? st.label : "LinkedIn only"}
-              </span>
-              {ob && (
-                <span
-                  className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${ob.cls}`}
-                >
-                  {ob.label}
-                </span>
-              )}
-            </p>
-            <p className="truncate text-xs text-ink-muted">
-              {[f.company, f.title].filter(Boolean).join(" · ")}
-            </p>
-            {f.email && (
-              <a
-                href={`mailto:${f.email}`}
-                className="mt-0.5 block truncate text-xs font-medium text-accent transition hover:underline"
-              >
-                {f.email}
-              </a>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            {f.linkedin && (
-              <a
-                href={f.linkedin}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-md px-2 py-1 text-xs text-accent transition hover:bg-accent/10"
-              >
-                LinkedIn ↗
-              </a>
-            )}
-            <button
-              type="button"
-              onClick={() => setGroup(f)}
-              className="rounded-md px-2 py-1 text-xs text-ink-muted transition hover:bg-line/40 hover:text-ink"
-              title={f.opportunity ? `Grouped: ${f.opportunity}` : "Group into an opportunity"}
+        {/* Identity — gets the full tile width; nothing competes for space */}
+        <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium text-ink">
+          <span className="break-words">{f.name}</span>
+          <span
+            className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${st.cls}`}
+          >
+            {f.email ? st.label : "LinkedIn only"}
+          </span>
+          {ob && (
+            <span
+              className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${ob.cls}`}
             >
-              {f.opportunity ? "Regroup" : "Group"}
-            </button>
-            <button
-              type="button"
-              onClick={() => editNote(f)}
-              className="rounded-md px-2 py-1 text-xs text-ink-muted transition hover:bg-line/40 hover:text-ink"
-            >
-              Edit note
-            </button>
-            <button
-              type="button"
-              onClick={() => remove(f)}
-              className="rounded-md px-2 py-1 text-xs text-ink-muted transition hover:bg-red-50 hover:text-red-600"
-            >
-              Remove
-            </button>
-          </div>
-        </div>
+              {ob.label}
+            </span>
+          )}
+        </p>
+        {[f.company, f.title].filter(Boolean).length > 0 && (
+          <p className="mt-0.5 text-xs text-ink-muted">
+            {[f.company, f.title].filter(Boolean).join(" · ")}
+          </p>
+        )}
+        {f.email && (
+          <a
+            href={`mailto:${f.email}`}
+            className="mt-0.5 block break-words text-[13px] font-medium text-accent transition hover:underline"
+          >
+            {f.email}
+          </a>
+        )}
         {f.note && (
           <p className="mt-2 rounded-lg bg-white/60 px-3 py-2 text-[13px] leading-relaxed text-ink">
             {f.note}
           </p>
         )}
-        <p className="mt-1.5 text-[11px] text-ink-faint">
-          Saved {f.flagged_at.slice(0, 10)}
-        </p>
+        {/* Actions — footer row that wraps instead of squeezing the content */}
+        <div className="mt-2 flex flex-wrap items-center gap-x-1 gap-y-1 border-t border-line/40 pt-2 text-xs">
+          {f.linkedin && (
+            <a
+              href={f.linkedin}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md px-1.5 py-1 text-accent transition hover:bg-accent/10"
+            >
+              LinkedIn ↗
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={() => setGroup(f)}
+            className="rounded-md px-1.5 py-1 text-ink-muted transition hover:bg-line/40 hover:text-ink"
+            title={f.opportunity ? `Grouped: ${f.opportunity}` : "Group into an opportunity"}
+          >
+            {f.opportunity ? "Regroup" : "Group"}
+          </button>
+          <button
+            type="button"
+            onClick={() => editNote(f)}
+            className="rounded-md px-1.5 py-1 text-ink-muted transition hover:bg-line/40 hover:text-ink"
+          >
+            Edit note
+          </button>
+          <button
+            type="button"
+            onClick={() => remove(f)}
+            className="rounded-md px-1.5 py-1 text-ink-muted transition hover:bg-red-50 hover:text-red-600"
+          >
+            Remove
+          </button>
+          <span className="ml-auto shrink-0 text-[11px] text-ink-faint">
+            {f.flagged_at.slice(0, 10)}
+          </span>
+        </div>
       </div>
     );
   };
