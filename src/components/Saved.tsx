@@ -166,7 +166,7 @@ export default function SavedPanel() {
             {f.email && (
               <a
                 href={`mailto:${f.email}`}
-                className="block truncate text-xs text-ink-muted transition hover:text-accent hover:underline"
+                className="mt-0.5 block truncate text-xs font-medium text-accent transition hover:underline"
               >
                 {f.email}
               </a>
