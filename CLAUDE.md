@@ -274,6 +274,12 @@ End-to-end runbooks that stitch the scripts + skills together.
   targets/company) → `save-contacts` + `set-primary` → QA the deliverability
   breakdown for the market → ready to Compose. (Site slug quirk: UK is `uk`, not
   `gb`; never import to `internal`.)
+- **`recipes/post-send-bounce-sweep.md`** — after a market's send, sweep Resend
+  for bounces (`check-bounces.mjs`), re-point any dead ★ primaries, and mine the
+  inbox for the auto-replies the sweep can't see.
+- **`recipes/git-workflow.md`** — how every change lands: a `type/short-desc`
+  branch → focused commit(s) → PR → **squash-merge** (`gh`). `main` is never
+  committed to directly and must always pass `npm run build`.
 
 ## Current data state
 The live companies + contacts ship in **`data/monitoring.db`** (gitignored,
@@ -285,6 +291,10 @@ version control** (they contain real personal data). The country switcher simply
 lists whatever `companies.market` values your DB happens to contain.
 
 ## Conventions
+- **Git workflow:** every change lands via a `type/short-desc` branch + a
+  squash-merged PR (`gh`), **never** committed straight to `main`; commit messages
+  are imperative with a `Co-Authored-By` trailer, and `npm run build` must pass
+  before merge. Full runbook: **`recipes/git-workflow.md`**.
 - `.db`/`.db-wal`/`.db-shm` are gitignored. Storage is **local-only**; no accounts.
 - Keep new server-side state in **`data/monitoring.db`** — don't add a second DB.
 - Contact-research output is staged as `data/contacts-*.json` then saved via
