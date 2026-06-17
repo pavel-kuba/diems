@@ -6,16 +6,19 @@ import type { DBContact } from "@/lib/contacts";
 
 /* ------------------------------------------------------------------ */
 /* Copy-and-send message templates. Look up a recipient (or type the   */
-/* details), and each message auto-fills the merge tags — ready to     */
-/* copy into your own mail client and send by hand. Nothing here is    */
-/* sent automatically. Edited templates persist to localStorage.       */
+/* details), and each message auto-fills the merge tags. The body is    */
+/* light markup (**bold**, "1." → numbered list, "- " → bullets); the  */
+/* preview renders it, and Copy puts BOTH rich HTML and plain text on   */
+/* the clipboard so a paste into Superhuman / Gmail keeps the bold      */
+/* labels and lists. Nothing is sent automatically. Templates persist   */
+/* to localStorage.                                                     */
 /* ------------------------------------------------------------------ */
 
 type MsgTemplate = { subject: string; body: string };
 type TemplateId = "claim" | "questions";
 type Templates = Record<TemplateId, MsgTemplate>;
 
-const TPL_KEY = "diems.msg-templates.v2";
+const TPL_KEY = "diems.msg-templates.v3";
 
 const DEFAULTS: Templates = {
   claim: {
@@ -26,21 +29,23 @@ Thanks for claiming the [Company] profile on Monitoring Station Guide — it cam
 
 Before I approve the claim and set it live as verified, could you give the current listing a quick look so I publish the right details? Here's what we have today:
 
-Company: [Company]
-Website: [Website]
-Location: [Location]
-Listing contact: [Listing Contact]
-Current description: [Description]
+**Company:** [Company]
+**Website:** [Website]
+**Location:** [Location]
+**Listing contact:** [Listing Contact]
+**Current description:** [Description]
+
 Capabilities:
+
 - Video verification ([Video Verification])
 - Active deterrence ([Active Deterrence])
 - Brand agnosticity ([Brand Agnosticity])
 
 Three quick things would really help:
 
-1. Is everything above accurate? Flag anything that's off.
-2. What would you most like to change, add, or improve? — the description, the services listed, the logo, the contact shown, anything at all.
-3. Can you verify the capabilities? Video verification means your operators can verify alarms using security cameras in real time. Active deterrence means your operators can trigger a deterrent (voice talk-down, fog machine, …). Brand agnosticity means your operators can verify alarms from almost any security camera (at Angelcam — our camera platform — we support over 200 camera brands).
+1. **Is everything above accurate?** Flag anything that's off.
+2. **What would you most like to change, add, or improve?** — the description, the services listed, the logo, the contact shown, anything at all.
+3. **Can you verify the capabilities?** Video verification means your operators can verify alarms using security cameras in real time. Active deterrence means your operators can trigger a deterrent (voice talk-down, fog machine, …). Brand agnosticity means your operators can verify alarms from almost any security camera (at Angelcam — our camera platform — we support over 200 camera brands).
 
 A few notes back in a reply is perfect, and I'll get the edits applied and the claim approved.
 
@@ -57,16 +62,16 @@ Thanks so much — great to hear you're interested, and thanks for picking this 
 
 Here are the questions for review. As much or as little detail as you like — even a couple of sentences each is perfect.
 
-Intro — Tell us a bit about [Company] — who you serve and what your monitoring operation looks like today.
-What sets you apart — What makes [Company] different from other monitoring stations? When a customer chooses you over a competitor, what's usually the deciding factor?
-Ideal customer — Who is your ideal customer, and what do you do best for them — the thing that keeps them with you?
-Response time — From the moment an alarm is triggered, what's your typical response time — how fast does an operator actually start acting on the signal?
-Resolution time — And how about resolution — from alarm to a handled/closed incident, what does a typical timeline look like?
-Video verification & deterrence — How easy is it for a customer to add active deterrence (e.g. audio talk-down / warnings) to their service? Is that something your operators can do directly, and how does a customer get set up for it?
-Camera-brand connectivity — Do you work with multiple camera brands, or are customers tied to specific hardware? How do cameras typically connect to your monitoring centre?
-False alarms — How do you keep false alarms down, and how much does video verification help there?
-How you work with customers — Can someone buy standalone 24/7 monitoring as a service? And how flexible is it — for example, could someone get monitoring just while they're away on holiday, or is it always a longer commitment? What does the process look like?
-Advice to buyers — If someone is shopping for a monitoring station, what should they look for, and what questions should they ask?
+1. **Intro** — Tell us a bit about [Company]: who you serve and what your monitoring operation looks like today.
+2. **What sets you apart** — What makes [Company] different from other monitoring stations? When a customer chooses you over a competitor, what's usually the deciding factor?
+3. **Ideal customer** — Who is your ideal customer, and what do you do best for them — the thing that keeps them with you?
+4. **Response time** — From the moment an alarm is triggered, what's your typical response time — how fast does an operator actually start acting on the signal?
+5. **Resolution time** — And how about resolution — from alarm to a handled/closed incident, what does a typical timeline look like?
+6. **Video verification & deterrence** — How easy is it for a customer to add active deterrence (e.g. audio talk-down / warnings) to their service? Is that something your operators can do directly, and how does a customer get set up for it?
+7. **Camera-brand connectivity** — Do you work with multiple camera brands, or are customers tied to specific hardware? How do cameras typically connect to your monitoring centre?
+8. **False alarms** — How do you keep false alarms down, and how much does video verification help there?
+9. **How you work with customers** — Can someone buy standalone 24/7 monitoring as a service? And how flexible is it — for example, could someone get monitoring just while they're away on holiday, or is it always a longer commitment? What does the process look like?
+10. **Advice to buyers** — If someone is shopping for a monitoring station, what should they look for, and what questions should they ask?
 
 Whenever you have a chance to put something together over this or next week would be perfect — no rush. And of course, I'll send you the finished piece to review and approve before it goes live.
 
@@ -101,6 +106,31 @@ const fillWith = (s: string, v: Vars) =>
     .replaceAll("[Video Verification]", yn(v.caps.video))
     .replaceAll("[Active Deterrence]", yn(v.caps.active))
     .replaceAll("[Brand Agnosticity]", yn(v.caps.brand));
+
+/* --- light markup → HTML (paragraphs, **bold**, ordered/bulleted lists) --- */
+const esc = (s: string) =>
+  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const inline = (s: string) =>
+  esc(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+function mdToHtml(text: string): string {
+  return text
+    .trim()
+    .split(/\n{2,}/)
+    .map((block) => {
+      const lines = block.split("\n").filter((l) => l.trim() !== "");
+      if (lines.length && lines.every((l) => /^\s*\d+\.\s+/.test(l))) {
+        return `<ol>${lines.map((l) => `<li>${inline(l.replace(/^\s*\d+\.\s+/, ""))}</li>`).join("")}</ol>`;
+      }
+      if (lines.length && lines.every((l) => /^\s*[-•]\s+/.test(l))) {
+        return `<ul>${lines.map((l) => `<li>${inline(l.replace(/^\s*[-•]\s+/, ""))}</li>`).join("")}</ul>`;
+      }
+      return `<p>${lines.map(inline).join("<br>")}</p>`;
+    })
+    .join("");
+}
+
+const mdToPlain = (text: string) => text.replace(/\*\*(.+?)\*\*/g, "$1");
 
 export default function TemplatesPanel() {
   const [tpl, setTpl] = useLocalStorage<Templates>(TPL_KEY, DEFAULTS);
@@ -155,7 +185,9 @@ export default function TemplatesPanel() {
         <h2 className="text-xl font-semibold tracking-tight text-ink">Templates</h2>
         <p className="mt-1 text-sm text-ink-muted">
           Look up a recipient (or type the details), and each message auto-fills.
-          Copy and send from your own inbox — nothing here is sent automatically.
+          <b> Copy message</b> puts formatted text on the clipboard — paste into
+          your inbox and the bold labels and lists carry over. Nothing is sent
+          automatically.
         </p>
       </div>
 
@@ -277,6 +309,7 @@ function TemplateCard({
   const [editing, setEditing] = useState(false);
   const filledSubject = fillWith(value.subject, vars);
   const filledBody = fillWith(value.body, vars);
+  const bodyHtml = mdToHtml(filledBody);
 
   return (
     <div className="card p-4">
@@ -316,7 +349,10 @@ function TemplateCard({
             />
           </label>
           <p className="text-[11px] leading-relaxed text-ink-faint">
-            Merge tags:{" "}
+            Formatting: <code className="rounded bg-line/50 px-1">**bold**</code>,
+            lines starting <code className="rounded bg-line/50 px-1">1.</code> become
+            a numbered list, <code className="rounded bg-line/50 px-1">-</code> become
+            bullets (blank line separates blocks). Merge tags:{" "}
             <code className="rounded bg-line/50 px-1">[First Name]</code>{" "}
             <code className="rounded bg-line/50 px-1">[Company]</code>{" "}
             <code className="rounded bg-line/50 px-1">[Website]</code>{" "}
@@ -341,12 +377,13 @@ function TemplateCard({
           </div>
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-[11px] text-ink-faint">Message</span>
-              <CopyButton text={filledBody} label="Copy message" primary />
+              <span className="text-[11px] text-ink-faint">Message (formatted)</span>
+              <CopyButton text={mdToPlain(filledBody)} html={bodyHtml} label="Copy message" primary />
             </div>
-            <pre className="mt-1 whitespace-pre-wrap rounded-lg bg-paper px-3 py-2.5 font-sans text-[13px] leading-relaxed text-ink">
-              {filledBody}
-            </pre>
+            <div
+              className="prose-email mt-1 rounded-lg bg-paper px-3 py-2.5 text-[13px] leading-relaxed text-ink"
+              dangerouslySetInnerHTML={{ __html: bodyHtml }}
+            />
           </div>
         </div>
       )}
@@ -396,17 +433,28 @@ function Toggle({ label, on, onClick }: { label: string; on: boolean; onClick: (
 
 function CopyButton({
   text,
+  html,
   label,
   primary,
 }: {
   text: string;
+  html?: string;
   label: string;
   primary?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(text);
+      if (html && "ClipboardItem" in window && navigator.clipboard?.write) {
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": new Blob([html], { type: "text/html" }),
+            "text/plain": new Blob([text], { type: "text/plain" }),
+          }),
+        ]);
+      } else {
+        await navigator.clipboard.writeText(text);
+      }
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
