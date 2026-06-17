@@ -18,6 +18,11 @@ export type ContactRow = {
   email_confidence: number | null;
   linkedin: string | null;
   is_primary: number | null;
+  // The contact's company listing details (for the Templates tab's auto-fill).
+  company_website: string | null;
+  company_city: string | null;
+  company_region: string | null;
+  company_description: string | null;
 };
 
 // Researched decision-maker contacts (scripts/save-contacts.mjs → SQLite),
@@ -49,7 +54,9 @@ export async function GET(req: Request) {
         `SELECT ct.id, ct.name, ct.first_name, ct.title,
                 co.name AS company, ct.company_slug, co.market AS market,
                 ct.email, ct.email_type, ct.email_status, ct.email_confidence,
-                ct.linkedin, ct.is_primary
+                ct.linkedin, ct.is_primary,
+                co.website AS company_website, co.city AS company_city,
+                co.region AS company_region, co.description AS company_description
          FROM contacts ct
          LEFT JOIN companies co ON co.id = ct.company_id
          ${where.length ? "WHERE " + where.join(" AND ") : ""}

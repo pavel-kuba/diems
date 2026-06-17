@@ -15,6 +15,12 @@ export type DBContact = {
   email_confidence: number | null;
   linkedin: string | null;
   is_primary: number | null;
+  // Company listing details (returned by /api/contacts; used by the Templates
+  // tab to auto-fill the profile-claim message). Optional — other tabs ignore.
+  company_website?: string | null;
+  company_city?: string | null;
+  company_region?: string | null;
+  company_description?: string | null;
 };
 
 type StatusMeta = {

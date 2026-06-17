@@ -64,8 +64,9 @@ npm run lint     # eslint
      on first open (tracked by `PRAGMA user_version`, currently **5**).
    Companies/contacts are still written only by the `scripts/*.mjs` tools.
 2. **Browser localStorage** — only Settings (from/reply-to), the selected
-   **country/market** (`diems.market`), and (stubbed) Templates. The Compose,
-   Contacts, and Follow-ups tabs read contacts from SQLite via the API.
+   **country/market** (`diems.market`), and the **message templates** edited on
+   the Templates tab (`diems.msg-templates.v2`). The Compose, Contacts, and
+   Follow-ups tabs read contacts from SQLite via the API.
 
 ### `companies` table
 `id, slug, name, website, city, region, country, description, market, detail_url,
@@ -120,13 +121,14 @@ email_confidence (0–100), verified_at, role_confirmed_at, updated_at, is_prima
 ## Source layout (`src/`)
 | File | Purpose |
 |------|---------|
-| `app/page.tsx` | Tabbed shell: **Compose / Follow-ups / Companies / Contacts / Settings / Saved / To-do**, wrapped in `CountryProvider`; header hosts the `CountrySelector`. |
+| `app/page.tsx` | Tabbed shell: **Compose / Follow-ups / Templates / Companies / Contacts / Settings / Saved / To-do**, wrapped in `CountryProvider`; two-row header hosts the `CountrySelector` (row 1) + the segmented tab nav (row 2, own full-width row so 8 tabs never wrap). |
 | `app/layout.tsx`, `app/globals.css` | Shell + Tailwind |
 | `components/Composer.tsx` | Initial send (step 0). Reads DB contacts (`/api/contacts?market=`) + outreach state (`/api/outreach/status`): status badges, ★ primary, outreach badges, quick-selects, send-time guard. Filtered by the selected country. Excludes halted (`replied`/`stopped`/`bounced`/`unsubscribed`) **and already-contacted** (`current_step >= 0`) contacts from a fresh send. |
 | `components/Followups.tsx` | Lists contacts **due** for their next follow-up (`/api/followups/due?market=`); sends the batch via `/api/followups/send`; **Stop** button (`/api/outreach/mark`); embeds the `SequenceEditor`. |
 | `components/Saved.tsx` | **Saved** tab — flagged contacts as a **coloured bento grid grouped by `opportunity`** (`/api/flags`): edit note / opportunity / remove, status + outreach badges, LinkedIn. Market-scoped. |
 | `components/Todos.tsx` | **To-do** tab — the operator's manual checklist (`/api/todos`): add / check off / click-to-edit / delete, with a collapsed "Done" section + clear-completed. **Not** market-scoped (ignores the country switcher). |
 | `components/SequenceEditor.tsx` | Edit/reset the follow-up bodies for steps 1–3 (`/api/sequence`); per-step **Send test** preview to a throwaway address (`/api/sequence/test`, default `DEFAULT_TEST_TO`). |
+| `components/Templates.tsx` | **Templates** tab — copy-and-send message templates (profile-claim + interview questions). Look up a contact (`/api/contacts?q=`) to auto-fill first name / company / email + the company's website/location/description; capability toggles (video/active-deterrence/brand-agnostic) for the claim; `[merge tags]` fill live; Copy buttons. Editable bodies persist to localStorage (`diems.msg-templates.v2`). **Nothing is sent** — manual copy/paste. |
 | `components/Companies.tsx` | Company list + live search (`/api/companies?q=&market=`) |
 | `components/Contacts.tsx` | **Read-only** DB contact directory (`/api/contacts` + outreach badges): grouped by company, status + outreach badges, ★ primary, LinkedIn links, search + primary-only filter, **Stop sequence / Resume** buttons (`/api/outreach/mark`). Created via the research scripts, not edited here. |
 | `components/CountrySelector.tsx` | Header dropdown of available markets (`/api/markets`); sets the shared country via `useCountry`. |
@@ -154,7 +156,7 @@ email_confidence (0–100), verified_at, role_confirmed_at, updated_at, is_prima
 | `app/api/todos/route.ts` | `GET` list; `POST {text}` add; `PATCH {id, done?\|text?}` toggle/edit; `DELETE ?id=` remove (or `?done=1` clear completed) — the To-do checklist |
 | `app/api/markets/route.ts` | `GET` → available markets (company + contact counts) + totals, for the switcher |
 | `app/api/companies/route.ts` | `GET ?q=&market=` — search companies |
-| `app/api/contacts/route.ts` | `GET ?q=&primary=1&market=` — DB contacts joined to company name |
+| `app/api/contacts/route.ts` | `GET ?q=&primary=1&market=` — DB contacts joined to company name (+ the company's `website`/`city`/`region`/`description` for the Templates tab's auto-fill) |
 
 ## Country / market switcher
 - `companies.market` (the import slug) is the country axis. The header
