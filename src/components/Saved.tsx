@@ -4,22 +4,27 @@ import { useCallback, useEffect, useState } from "react";
 import { statusOf } from "@/lib/contacts";
 import { outreachBadge, type OutreachStatusRow } from "@/lib/outreach-ui";
 import { useCountry } from "@/lib/country";
+import { useLocalStorage } from "@/lib/store";
+import SavedBoard from "./SavedBoard";
+import type { Deal, StageId } from "@/lib/pipeline";
 
 // Hand-picked contacts worth a future conversation (e.g. a polite decline from
 // a senior person). Flag/unflag from the Contacts tab; review them here.
 // An optional `opportunity` label groups several saved contacts (even across
 // different companies) into a single opportunity card — one warm lead you work
 // as a unit. See `setContactFlag` in lib/outreach.ts.
-type Flag = {
+export type Flag = {
   contact_id: number;
   note: string | null;
   opportunity: string | null;
+  stage: string | null;
   flagged_at: string;
   name: string;
   title: string | null;
   email: string | null;
   email_status: string | null;
   linkedin: string | null;
+  is_primary: number | null;
   company: string | null;
   market: string | null;
 };
@@ -50,30 +55,40 @@ export default function SavedPanel() {
   const { market } = useCountry();
   const [flags, setFlags] = useState<Flag[]>([]);
   const [outreach, setOutreach] = useState<Map<number, OutreachStatusRow>>(new Map());
+  const [dueIds, setDueIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // List = the bento grid; Board = the Kanban over the same deals.
+  const [view, setView] = useLocalStorage<"list" | "board">("diems.saved.view", "list");
 
-  const load = useCallback(() => {
-    setLoading(true);
-    const qs = market ? `?market=${encodeURIComponent(market)}` : "";
-    fetch(`/api/flags${qs}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.error) setError(d.error);
-        else setFlags((d.flags as Flag[]) || []);
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
-      .finally(() => setLoading(false));
-    fetch("/api/outreach/status")
-      .then((r) => r.json())
-      .then((d) => {
-        const rows = (d.statuses as OutreachStatusRow[]) || [];
-        setOutreach(new Map(rows.map((r) => [r.contact_id, r])));
-      })
-      .catch(() => {});
-  }, [market]);
+  // `quiet` re-fetches without flashing the loading state (used after a drag).
+  const load = useCallback(
+    (quiet = false) => {
+      if (!quiet) setLoading(true);
+      const qs = market ? `?market=${encodeURIComponent(market)}` : "";
+      fetch(`/api/flags${qs}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.error) setError(d.error);
+          else setFlags((d.flags as Flag[]) || []);
+        })
+        .catch((e) => setError(e instanceof Error ? e.message : "Failed to load"))
+        .finally(() => setLoading(false));
+      fetch("/api/outreach/status")
+        .then((r) => r.json())
+        .then((d) => {
+          const rows = (d.statuses as OutreachStatusRow[]) || [];
+          setOutreach(new Map(rows.map((r) => [r.contact_id, r])));
+          setDueIds(new Set((d.dueIds as number[]) || []));
+        })
+        .catch(() => {});
+    },
+    [market]
+  );
 
-  useEffect(load, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
   const post = async (contactId: number, body: Record<string, unknown>) => {
     await fetch("/api/flags", {
@@ -113,8 +128,49 @@ export default function SavedPanel() {
   const remove = (f: Flag) => {
     if (!window.confirm(`Remove ${f.name} from saved contacts?`)) return;
     fetch(`/api/flags?contactId=${f.contact_id}`, { method: "DELETE" })
-      .then(load)
+      .then(() => load())
       .catch(() => {});
+  };
+
+  // Drag a deal to a new stage column (Board view). Optimistically restage every
+  // contact in the deal, persist it, then — only for Lost / Replied, the two
+  // stages with an exact email-engine meaning — halt or mark the sequence so a
+  // dead deal stops getting follow-ups. Other stages never touch email status.
+  const move = async (deal: Deal<Flag>, toStage: StageId) => {
+    const ids = deal.contacts.map((c) => c.contact_id);
+    const idSet = new Set(ids);
+    setFlags((prev) =>
+      prev.map((f) => (idSet.has(f.contact_id) ? { ...f, stage: toStage } : f))
+    );
+    try {
+      const r = await fetch("/api/flags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ contactIds: ids, stage: toStage }),
+      });
+      if (!r.ok) return load(); // revert to server truth on failure
+    } catch {
+      return load();
+    }
+
+    if (toStage === "lost" || toStage === "replied") {
+      const status = toStage === "lost" ? "stopped" : "replied";
+      const active = deal.contacts.filter(
+        (c) => outreach.get(c.contact_id)?.status === "active"
+      );
+      if (active.length) {
+        await Promise.all(
+          active.map((c) =>
+            fetch("/api/outreach/mark", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ contactId: c.contact_id, status }),
+            }).catch(() => {})
+          )
+        );
+        load(true); // refresh outreach badges without a spinner flash
+      }
+    }
   };
 
   // Split into opportunity groups (shared label) and ungrouped singles. `flags`
@@ -231,6 +287,25 @@ export default function SavedPanel() {
         </p>
       </div>
 
+      {!error && flags.length > 0 && (
+        <div className="inline-flex rounded-lg bg-[#e9e9eb] p-0.5">
+          {(["list", "board"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`rounded-[7px] px-3 py-1 text-[13px] capitalize transition ${
+                view === v
+                  ? "bg-surface font-medium text-ink shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
+                  : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      )}
+
       {error && (
         <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -243,8 +318,18 @@ export default function SavedPanel() {
         </p>
       )}
 
+      {view === "board" && flags.length > 0 && (
+        <SavedBoard
+          flags={flags}
+          outreach={outreach}
+          dueIds={dueIds}
+          onMove={move}
+        />
+      )}
+
       {/* Bento masonry — opportunity + single tiles pack together regardless of
           height. CSS multi-columns keep varied-height cards gap-free. */}
+      {view === "list" && (
       <div className="gap-3 sm:columns-2 lg:columns-3">
         {/* Opportunity cards — several saved contacts worked as one lead. */}
         {groups.map((g) => {
@@ -289,6 +374,7 @@ export default function SavedPanel() {
           </div>
         ))}
       </div>
+      )}
     </div>
   );
 }

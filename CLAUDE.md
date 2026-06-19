@@ -61,7 +61,7 @@ npm run lint     # eslint
    - `src/lib/db.ts` — **read-only** cached handle for all company/contact reads.
    - `src/lib/outreach.ts` — **writable** cached handle; owns the `outreach*`,
      `sequence_templates`, `contact_flags` + `todos` tables and `migrate()`s them
-     on first open (tracked by `PRAGMA user_version`, currently **5**).
+     on first open (tracked by `PRAGMA user_version`, currently **6**).
    Companies/contacts are still written only by the `scripts/*.mjs` tools.
 2. **Browser localStorage** — only Settings (from/reply-to), the selected
    **country/market** (`diems.market`), and the **message templates** edited on
@@ -105,11 +105,14 @@ email_confidence (0–100), verified_at, role_confirmed_at, updated_at, is_prima
   (`FOLLOWUP_BODIES`). Edited via the **Sequence editor** on the Follow-ups tab.
 - **`contact_flags`** — hand-picked "interesting for the future" contacts (e.g.
   a polite decline from a senior person): `contact_id (PK), note, opportunity,
-  flagged_at`. The optional **`opportunity`** label (added in migration v4) groups
-  several saved contacts into ONE opportunity on the Saved tab (e.g. two people at
-  the same prospect). Flagged via 🔖 on the Contacts tab; reviewed on the **Saved**
-  tab (a coloured bento grid grouped by opportunity), via `/api/flags`
-  GET/POST/DELETE.
+  stage, flagged_at`. The optional **`opportunity`** label (added in migration v4)
+  groups several saved contacts into ONE opportunity on the Saved tab (e.g. two
+  people at the same prospect). The optional **`stage`** (migration v6) is the
+  Saved-tab Kanban column (`lead|contacted|replied|scheduled|won|lost`); NULL means
+  "derive from the contact's outreach status" until the operator drags the card.
+  Flagged via 🔖 on the Contacts tab; reviewed on the **Saved** tab — either as a
+  coloured bento grid grouped by opportunity **or as a Kanban board** (List/Board
+  toggle), via `/api/flags` GET/POST/DELETE.
 - **`outreach_events`** — **vestigial** (created by the v1 migration for the
   removed webhook; `logEvent`/`findContactByEmail` still exist but nothing calls
   them). Left in place; safe to ignore.
@@ -125,7 +128,8 @@ email_confidence (0–100), verified_at, role_confirmed_at, updated_at, is_prima
 | `app/layout.tsx`, `app/globals.css` | Shell + Tailwind |
 | `components/Composer.tsx` | Initial send (step 0). Reads DB contacts (`/api/contacts?market=`) + outreach state (`/api/outreach/status`): status badges, ★ primary, outreach badges, quick-selects, send-time guard. Filtered by the selected country. Excludes halted (`replied`/`stopped`/`bounced`/`unsubscribed`) **and already-contacted** (`current_step >= 0`) contacts from a fresh send. |
 | `components/Followups.tsx` | Lists contacts **due** for their next follow-up (`/api/followups/due?market=`); sends the batch via `/api/followups/send`; **Stop** button (`/api/outreach/mark`); embeds the `SequenceEditor`. |
-| `components/Saved.tsx` | **Saved** tab — flagged contacts as a **coloured bento grid grouped by `opportunity`** (`/api/flags`): edit note / opportunity / remove, status + outreach badges, LinkedIn. Market-scoped. |
+| `components/Saved.tsx` | **Saved** tab — flagged contacts via a **List / Board toggle** (`/api/flags`). List = **coloured bento grid grouped by `opportunity`**: edit note / opportunity / remove, status + outreach badges, LinkedIn. Board = the Kanban (`SavedBoard`). Market-scoped; persists the toggle to localStorage (`diems.saved.view`). |
+| `components/SavedBoard.tsx` | **Kanban** view of the Saved deals — one card per company/opportunity across the `PIPELINE_STAGES` columns; native HTML5 drag sets `contact_flags.stage` for the whole deal. Lost/Replied drags also halt/mark the sequence via `/api/outreach/mark`. |
 | `components/Todos.tsx` | **To-do** tab — the operator's manual checklist (`/api/todos`): add / check off / click-to-edit / delete, with a collapsed "Done" section + clear-completed. **Not** market-scoped (ignores the country switcher). |
 | `components/SequenceEditor.tsx` | Edit/reset the follow-up bodies for steps 1–3 (`/api/sequence`); per-step **Send test** preview to a throwaway address (`/api/sequence/test`, default `DEFAULT_TEST_TO`). |
 | `components/Templates.tsx` | **Templates** tab — copy-and-send message templates (profile-claim + interview questions). Look up a contact (`/api/contacts?q=`) to auto-fill first name / company / email + the company's website/location/description; capability toggles (video/active-deterrence/brand-agnostic) for the claim; `[merge tags]` fill live; Copy buttons. Editable bodies persist to localStorage (`diems.msg-templates.v2`). **Nothing is sent** — manual copy/paste. |
@@ -139,6 +143,7 @@ email_confidence (0–100), verified_at, role_confirmed_at, updated_at, is_prima
 | `lib/store.ts` | localStorage `Settings` type + SSR-safe `useLocalStorage` hook |
 | `lib/contacts.ts` | Shared `DBContact` type + `email_status` helpers (`statusOf`, `isSendable`, badge classes) |
 | `lib/outreach-ui.ts` | **Client-safe** outreach badge helper (`outreachBadge`, `OutreachStatusRow`) — no server imports |
+| `lib/pipeline.ts` | **Client-safe** Saved-tab Kanban config: `PIPELINE_STAGES`, `StageId`, `defaultStageFor` (seed a stage from outreach status), `groupIntoDeals` (collapse flagged contacts into deal cards) — no server imports |
 | `lib/outreach.ts` | **Server-only**: writable DB handle + migrations, send logging, step advance, manual reply/stop marking, due-contact queries, follow-up template CRUD, saved-contact flags (+ `opportunity` grouping) + the `todos` checklist CRUD |
 | `lib/sequence.ts` | The follow-up sequence as config: `STEP_OFFSETS_DAYS [0,2,5,10]`, `MAX_STEP=3`, default `FOLLOWUP_BODIES`, `followupSubject` (`Re:`-prefix) |
 | `lib/signature.ts` | `SIGNATURE_HTML` — Pavel's signature, single source of truth shared by the initial body + all follow-ups |
@@ -152,7 +157,7 @@ email_confidence (0–100), verified_at, role_confirmed_at, updated_at, is_prima
 | `app/api/sequence/test/route.ts` | `POST {step, bodyHtml?, from?, replyTo?, to?, baseSubject?}` → test-send ONE follow-up step (`[TEST] Re: …` subject) to a throwaway address for inbox preview; does **not** log to `outreach_sends` or advance any step. |
 | `app/api/outreach/mark/route.ts` | `POST {contactId,status}` → manually set `active`/`replied`/`stopped` (Stop/Resume) |
 | `app/api/outreach/status/route.ts` | `GET` → per-contact outreach state + `dueIds` for UI badges |
-| `app/api/flags/route.ts` | `GET ?market=` saved contacts; `POST {contactId, note?, opportunity?}` flag/update (only the fields present in the body are written); `DELETE ?contactId=` unflag |
+| `app/api/flags/route.ts` | `GET ?market=` saved contacts; `POST {contactId, note?, opportunity?, stage?}` flag/update (only the fields present in the body are written) **or** `POST {contactIds:[…], stage}` to move a whole deal to a Kanban stage; `DELETE ?contactId=` unflag |
 | `app/api/todos/route.ts` | `GET` list; `POST {text}` add; `PATCH {id, done?\|text?}` toggle/edit; `DELETE ?id=` remove (or `?done=1` clear completed) — the To-do checklist |
 | `app/api/markets/route.ts` | `GET` → available markets (company + contact counts) + totals, for the switcher |
 | `app/api/companies/route.ts` | `GET ?q=&market=` — search companies |
