@@ -120,6 +120,13 @@ function migrate(db: Database.Database): void {
     `);
     db.pragma("user_version = 5");
   }
+  if (version < 6) {
+    // Manual Kanban stage for the Saved-tab board (Lead…Won/Lost). NULL means
+    // "derive from the contact's outreach status" until the operator drags the
+    // card; once dragged, an explicit stage id is stored here.
+    db.exec(`ALTER TABLE contact_flags ADD COLUMN stage TEXT;`);
+    db.pragma("user_version = 6");
+  }
 }
 
 const now = () => new Date().toISOString();
@@ -453,6 +460,7 @@ export type FlaggedContact = {
   contact_id: number;
   note: string | null;
   opportunity: string | null;
+  stage: string | null;
   flagged_at: string;
   name: string;
   title: string | null;
@@ -472,26 +480,47 @@ export type FlaggedContact = {
  */
 export function setContactFlag(
   contactId: number,
-  fields: { note?: string | null; opportunity?: string | null } = {}
+  fields: {
+    note?: string | null;
+    opportunity?: string | null;
+    stage?: string | null;
+  } = {}
 ): void {
   const hasNote = "note" in fields;
   const hasOpp = "opportunity" in fields;
+  const hasStage = "stage" in fields;
   getWritableDb()
     .prepare(
-      `INSERT INTO contact_flags (contact_id, note, opportunity, flagged_at)
-       VALUES (@contactId, @note, @opportunity, @flaggedAt)
+      `INSERT INTO contact_flags (contact_id, note, opportunity, stage, flagged_at)
+       VALUES (@contactId, @note, @opportunity, @stage, @flaggedAt)
        ON CONFLICT(contact_id) DO UPDATE SET
-         note        = CASE WHEN @hasNote THEN @note        ELSE contact_flags.note        END,
-         opportunity = CASE WHEN @hasOpp  THEN @opportunity ELSE contact_flags.opportunity END`
+         note        = CASE WHEN @hasNote  THEN @note        ELSE contact_flags.note        END,
+         opportunity = CASE WHEN @hasOpp   THEN @opportunity ELSE contact_flags.opportunity END,
+         stage       = CASE WHEN @hasStage THEN @stage       ELSE contact_flags.stage       END`
     )
     .run({
       contactId,
       note: fields.note ?? null,
       opportunity: fields.opportunity ?? null,
+      stage: fields.stage ?? null,
       hasNote: hasNote ? 1 : 0,
       hasOpp: hasOpp ? 1 : 0,
+      hasStage: hasStage ? 1 : 0,
       flaggedAt: now(),
     });
+}
+
+/**
+ * Move a whole deal to a stage: set `stage` on every member contact in one
+ * transaction so a multi-person opportunity stays consistent on the board.
+ * Only touches already-flagged contacts (the board's source data).
+ */
+export function setDealStage(contactIds: number[], stage: string | null): void {
+  const db = getWritableDb();
+  const tx = db.transaction((ids: number[]) => {
+    for (const id of ids) setContactFlag(id, { stage });
+  });
+  tx(contactIds);
 }
 
 /** Remove a contact's flag. */
@@ -505,7 +534,7 @@ export function clearContactFlag(contactId: number): void {
 export function listContactFlags(market = ""): FlaggedContact[] {
   return getWritableDb()
     .prepare(
-      `SELECT f.contact_id, f.note, f.opportunity, f.flagged_at,
+      `SELECT f.contact_id, f.note, f.opportunity, f.stage, f.flagged_at,
               c.name, c.title, c.email, c.email_status, c.linkedin, c.is_primary,
               co.name AS company, co.market AS market
        FROM contact_flags f
