@@ -126,7 +126,12 @@ export default function SavedBoard({ flags, outreach, dueIds, onMove }: Props) {
         Drag a deal between columns to set its stage. Cards group by opportunity
         (else by company); the email-status badge is tracked separately.
       </p>
-      <div className="flex gap-3 overflow-x-auto pb-2">
+      <div
+        className="grid gap-3"
+        style={{
+          gridTemplateColumns: `repeat(${PIPELINE_STAGES.length}, minmax(0, 1fr))`,
+        }}
+      >
         {PIPELINE_STAGES.map((stage) => {
           const items = byStage(stage.id);
           const over = overStage === stage.id;
@@ -142,10 +147,8 @@ export default function SavedBoard({ flags, outreach, dueIds, onMove }: Props) {
                 e.preventDefault();
                 drop(stage.id);
               }}
-              className={`flex w-72 shrink-0 flex-col rounded-xl border p-2 transition ${
-                over
-                  ? "border-accent/40 bg-accent/5"
-                  : `${stage.tint}`
+              className={`flex flex-col rounded-xl border p-2 transition ${
+                over ? "border-accent/40 bg-accent/5" : stage.tint
               }`}
             >
               <div className="flex items-center justify-between gap-2 px-1 pb-2">

@@ -276,7 +276,9 @@ export default function SavedPanel() {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-4">
+    <div
+      className={`mx-auto space-y-4 ${view === "board" ? "max-w-7xl" : "max-w-5xl"}`}
+    >
       <div className="max-w-2xl">
         <h2 className="text-xl font-semibold tracking-tight text-ink">Saved</h2>
         <p className="mt-1 text-sm text-ink-muted">

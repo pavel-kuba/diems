@@ -108,8 +108,9 @@ email_confidence (0–100), verified_at, role_confirmed_at, updated_at, is_prima
   stage, flagged_at`. The optional **`opportunity`** label (added in migration v4)
   groups several saved contacts into ONE opportunity on the Saved tab (e.g. two
   people at the same prospect). The optional **`stage`** (migration v6) is the
-  Saved-tab Kanban column (`lead|contacted|replied|scheduled|won|lost`); NULL means
-  "derive from the contact's outreach status" until the operator drags the card.
+  Saved-tab Kanban column (`replied|questions|won|lost` — the board starts at
+  Replied since saved deals are already in conversation); NULL means "derive from
+  the contact's outreach status" until the operator drags the card.
   Flagged via 🔖 on the Contacts tab; reviewed on the **Saved** tab — either as a
   coloured bento grid grouped by opportunity **or as a Kanban board** (List/Board
   toggle), via `/api/flags` GET/POST/DELETE.

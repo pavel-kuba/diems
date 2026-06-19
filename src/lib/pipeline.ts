@@ -11,13 +11,7 @@
  * `lib/outreach-ui.ts`).
  */
 
-export type StageId =
-  | "lead"
-  | "contacted"
-  | "replied"
-  | "scheduled"
-  | "won"
-  | "lost";
+export type StageId = "replied" | "questions" | "won" | "lost";
 
 export type Stage = {
   id: StageId;
@@ -29,22 +23,9 @@ export type Stage = {
   chip: string;
 };
 
-// Ordered left-to-right. Lead → … → Won/Lost.
+// Ordered left-to-right. The board starts at Replied — saved deals are people
+// already in conversation, not fresh leads.
 export const PIPELINE_STAGES: Stage[] = [
-  {
-    id: "lead",
-    label: "Lead",
-    hint: "Saved, not yet contacted",
-    tint: "border-stone-200/70 bg-stone-50",
-    chip: "bg-stone-200/70 text-stone-600",
-  },
-  {
-    id: "contacted",
-    label: "Contacted",
-    hint: "Initial email sent / in sequence",
-    tint: "border-sky-200/70 bg-sky-50",
-    chip: "bg-sky-100 text-sky-700",
-  },
   {
     id: "replied",
     label: "Replied",
@@ -53,9 +34,9 @@ export const PIPELINE_STAGES: Stage[] = [
     chip: "bg-violet-100 text-violet-700",
   },
   {
-    id: "scheduled",
-    label: "Interview scheduled",
-    hint: "Date agreed",
+    id: "questions",
+    label: "Interview Q&A",
+    hint: "Interview questions sent — awaiting answers",
     tint: "border-amber-200/70 bg-amber-50",
     chip: "bg-amber-100 text-amber-700",
   },
@@ -83,22 +64,19 @@ export function isStageId(s: string | null | undefined): s is StageId {
 
 /**
  * Seed a stage from a contact's email-outreach status (used only when the deal
- * has no explicit `stage` yet). "Interview scheduled" and "Won" have no email-
- * engine equivalent, so they're only ever reached by dragging.
+ * has no explicit `stage` yet). The board starts at Replied — saved deals are
+ * people already in conversation — so anything not negatively halted floors to
+ * "replied". "Interview Q&A" and "Won" have no email-engine equivalent and are
+ * only ever reached by dragging.
  */
 export function defaultStageFor(status: string | null | undefined): StageId {
   switch (status) {
-    case "replied":
-      return "replied";
     case "stopped":
     case "bounced":
     case "unsubscribed":
       return "lost";
-    case "active":
-    case "completed":
-      return "contacted";
     default:
-      return "lead"; // no outreach row / never contacted / unknown
+      return "replied";
   }
 }
 
