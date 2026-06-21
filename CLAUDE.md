@@ -257,6 +257,7 @@ A single campaign (blog interviews); no campaign/enrollment modelling — one
 | `probe-messageid.mjs` | De-risk threading: send one email with a known `Message-ID`, then check Gmail "Show original" to confirm Resend kept it verbatim. `node scripts/probe-messageid.mjs <to> [from]`. |
 | `check-bounces.mjs` | **Post-send bounce sweep** (no webhook → bounces are otherwise invisible). Polls Resend for each logged send's `last_event`; hard bounces → `outreach.status='bounced'` + `email_status='invalid'` + dated note. Flags bounced ★ primaries and companies left with no deliverable contact. `--since YYYY-MM-DD` (default last 3 days), `--all`, `--dry-run`. Run a day or two after each market send; re-run `set-primary-contacts.mjs` if it says so. |
 | `strip-company-suffixes.mjs` | Strip trailing legal suffixes from `companies.name` so they read naturally in emails/blog features (`Acme, LLC` → `Acme`). Handles US (LLC/Inc/Corp/Co./Ltd) + intl (`Pty Ltd`, `(Pty) Ltd`, `Pvt Ltd`, `Private Limited`, `PLC`) + parent-company taglines (`… A Pye-Barker … Company`). Dry-run by default; `--apply` writes (backs up the DB first); `--market <slug>\|all`. Idempotent. |
+| `reconcile-inbox.mjs` | DB side of the **inbox-reconcile** loop (replies are tracked by hand → the DB drifts). `lookup <email…>` maps reply senders → contact + current outreach/saved state (the inbox-driven join key); `roster [--saved\|--active] [--market]` dumps the worklist JSON + summary; `apply <json> [--dry-run]` writes back `outreach.status` (replied/stopped/bounced) + Saved `stage`/`note`/`opportunity` + `email_status`, replicating the exact `markReplied`/`markStatus`/`setContactFlag` SQL. Idempotent; `apply` is the only writer. Driven by the `reconcile-inbox` skill (reads the inbox via the Superhuman MCP). |
 
 ## `research-contacts` skill
 `.claude/skills/research-contacts/SKILL.md` is the playbook for finding 2–3
@@ -266,6 +267,17 @@ interview targets per company (owner/CEO → marketing/PR → ops backup), getti
 JSON → `save-contacts` → `set-primary` → Compose. Rule: **never save a guessed
 email as deliverable** — `invalid` falls back to a role/company address or
 LinkedIn-only; `risky`/accept-all is saved but flagged with LinkedIn as primary.
+
+## `reconcile-inbox` skill
+`.claude/skills/reconcile-inbox/SKILL.md` closes the manual-reply-tracking gap:
+since there's no inbound webhook, the DB drifts as Pavel replies in Superhuman.
+The skill is **inbox-driven** — read recent replies via the **Superhuman Mail
+MCP** (full bodies), match each sender with `reconcile-inbox.mjs lookup` (never
+scan the ~1,500 active threads), classify (reply→`replied`/`stopped`/`bounced` +
+Saved `stage`), then `apply --dry-run` → `apply`. Also reconciles the existing
+Saved-board deals thread-by-thread. **Reads the inbox + writes the DB only — never
+sends email.** Run it interactively (the MCP is interactively authenticated, so it
+won't work headless/cron). Runbook: `recipes/reconcile-inbox.md`.
 
 ### "accept-all" / catch-all caveat
 Some domains accept mail for any address, so a verifier can't confirm a specific
@@ -283,6 +295,11 @@ End-to-end runbooks that stitch the scripts + skills together.
 - **`recipes/post-send-bounce-sweep.md`** — after a market's send, sweep Resend
   for bounces (`check-bounces.mjs`), re-point any dead ★ primaries, and mine the
   inbox for the auto-replies the sweep can't see.
+- **`recipes/reconcile-inbox.md`** — sync the DB to the inbox (the
+  `reconcile-inbox` skill/`reconcile-inbox.mjs`): read replies via the Superhuman
+  MCP → `lookup` senders → mark replied/stopped/bounced so the sequence halts →
+  correct the Saved-board stages/notes. Run whenever you've been replying; the
+  automated version of the bounce sweep's inbox-triage step.
 - **`recipes/git-workflow.md`** — how every change lands: a `type/short-desc`
   branch → focused commit(s) → PR → **squash-merge** (`gh`). `main` is never
   committed to directly and must always pass `npm run build`.
