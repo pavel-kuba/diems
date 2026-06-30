@@ -65,6 +65,7 @@ export default function Composer({ goToSettings }: { goToSettings: () => void })
   const [extra, setExtra] = useState(""); // ad-hoc emails, comma separated
   const [query, setQuery] = useState("");
   const [primaryOnly, setPrimaryOnly] = useState(false);
+  const [selectedOnly, setSelectedOnly] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
   const [sending, setSending] = useState(false);
@@ -155,6 +156,15 @@ export default function Composer({ goToSettings }: { goToSettings: () => void })
       );
     });
   }, [contacts, query, primaryOnly]);
+
+  // The rows actually rendered. "Selected only" collapses the list to just the
+  // people who'll receive this send, so the operator can review the final set
+  // without the already-contacted / not-selectable noise. Kept separate from
+  // `filtered` so the quick-selects and counts still see the full set.
+  const visible = useMemo(
+    () => (selectedOnly ? filtered.filter((c) => selected.has(c.id)) : filtered),
+    [filtered, selectedOnly, selected]
+  );
 
   const toggle = (id: number) =>
     setSelected((s) => {
@@ -534,15 +544,26 @@ export default function Composer({ goToSettings }: { goToSettings: () => void })
             className="input mb-2 py-1.5"
           />
 
-          <label className="mb-2 flex items-center gap-2 text-xs text-ink-muted">
-            <input
-              type="checkbox"
-              checked={primaryOnly}
-              onChange={(e) => setPrimaryOnly(e.target.checked)}
-              className="accent-accent"
-            />
-            Primary target per company only
-          </label>
+          <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <label className="flex items-center gap-2 text-xs text-ink-muted">
+              <input
+                type="checkbox"
+                checked={primaryOnly}
+                onChange={(e) => setPrimaryOnly(e.target.checked)}
+                className="accent-accent"
+              />
+              Primary target per company only
+            </label>
+            <label className="flex items-center gap-2 text-xs text-ink-muted">
+              <input
+                type="checkbox"
+                checked={selectedOnly}
+                onChange={(e) => setSelectedOnly(e.target.checked)}
+                className="accent-accent"
+              />
+              Selected only{selected.size > 0 ? ` (${selected.size})` : ""}
+            </label>
+          </div>
 
           {cautionRecipients.length > 0 && (
             <p className="mb-2 rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-800">
@@ -555,14 +576,16 @@ export default function Composer({ goToSettings }: { goToSettings: () => void })
             {contactsError && (
               <p className="py-4 text-center text-xs text-red-500">{contactsError}</p>
             )}
-            {!contactsError && filtered.length === 0 && (
+            {!contactsError && visible.length === 0 && (
               <p className="py-4 text-center text-xs text-ink-faint">
-                {contacts.length === 0
-                  ? "No researched contacts in the database yet."
-                  : "No contacts match this filter."}
+                {selectedOnly
+                  ? "No recipients selected yet."
+                  : contacts.length === 0
+                    ? "No researched contacts in the database yet."
+                    : "No contacts match this filter."}
               </p>
             )}
-            {filtered.map((c) => {
+            {visible.map((c) => {
               const st = statusOf(c.email_status);
               const sendable = selectableForInitial(c);
               const ob = outreachBadge(outreach.get(c.id), dueIds.has(c.id));
