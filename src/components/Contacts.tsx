@@ -5,6 +5,15 @@ import { statusOf, type DBContact } from "@/lib/contacts";
 import { outreachBadge, type OutreachStatusRow } from "@/lib/outreach-ui";
 import { useCountry } from "@/lib/country";
 
+// The three deliverability buckets the summary pills count — and now filter by.
+type EmailCategory = "valid" | "caution" | "noEmail";
+function categoryOf(c: DBContact): EmailCategory {
+  const st = statusOf(c.email_status);
+  if (!c.email || !st.sendable) return "noEmail";
+  if (st.caution) return "caution";
+  return "valid";
+}
+
 // Read-only view of the researched decision-makers stored in SQLite
 // (data/monitoring.db, served by /api/contacts). Contacts are created/updated by
 // the research-contacts skill + scripts/save-contacts.mjs — not edited here.
@@ -15,6 +24,7 @@ export default function ContactsPanel() {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [primaryOnly, setPrimaryOnly] = useState(false);
+  const [emailFilter, setEmailFilter] = useState<EmailCategory | null>(null);
   const [outreach, setOutreach] = useState<Map<number, OutreachStatusRow>>(new Map());
   const [dueIds, setDueIds] = useState<Set<number>>(new Set());
   const [flagged, setFlagged] = useState<Set<number>>(new Set());
@@ -96,12 +106,13 @@ export default function ContactsPanel() {
     const q = query.trim().toLowerCase();
     return contacts.filter((c) => {
       if (primaryOnly && c.is_primary !== 1) return false;
+      if (emailFilter && categoryOf(c) !== emailFilter) return false;
       if (!q) return true;
       return [c.name, c.email, c.company, c.title].some((v) =>
         (v || "").toLowerCase().includes(q)
       );
     });
-  }, [contacts, query, primaryOnly]);
+  }, [contacts, query, primaryOnly, emailFilter]);
 
   // Group by company, preserving the API's order (company, primary first, name).
   const groups = useMemo(() => {
@@ -118,10 +129,10 @@ export default function ContactsPanel() {
       caution = 0,
       noEmail = 0;
     for (const c of contacts) {
-      const st = statusOf(c.email_status);
-      if (!c.email || !st.sendable) noEmail++;
-      else if (st.caution) caution++;
-      else valid++;
+      const cat = categoryOf(c);
+      if (cat === "valid") valid++;
+      else if (cat === "caution") caution++;
+      else noEmail++;
     }
     return { valid, caution, noEmail };
   }, [contacts]);
@@ -139,14 +150,40 @@ export default function ContactsPanel() {
           Managed by the research scripts; selectable in the Compose tab.
         </p>
         {contacts.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-2 text-xs">
-            <Pill cls="bg-emerald-100 text-emerald-800">{stats.valid} valid</Pill>
-            <Pill cls="bg-amber-100 text-amber-800">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <FilterPill
+              cls="bg-emerald-100 text-emerald-800"
+              active={emailFilter === "valid"}
+              dimmed={emailFilter !== null && emailFilter !== "valid"}
+              onClick={() => setEmailFilter((f) => (f === "valid" ? null : "valid"))}
+            >
+              {stats.valid} valid
+            </FilterPill>
+            <FilterPill
+              cls="bg-amber-100 text-amber-800"
+              active={emailFilter === "caution"}
+              dimmed={emailFilter !== null && emailFilter !== "caution"}
+              onClick={() => setEmailFilter((f) => (f === "caution" ? null : "caution"))}
+            >
               {stats.caution} risky / unknown
-            </Pill>
-            <Pill cls="bg-stone-200/70 text-stone-500">
+            </FilterPill>
+            <FilterPill
+              cls="bg-stone-200/70 text-stone-500"
+              active={emailFilter === "noEmail"}
+              dimmed={emailFilter !== null && emailFilter !== "noEmail"}
+              onClick={() => setEmailFilter((f) => (f === "noEmail" ? null : "noEmail"))}
+            >
               {stats.noEmail} LinkedIn-only / invalid
-            </Pill>
+            </FilterPill>
+            {emailFilter && (
+              <button
+                type="button"
+                onClick={() => setEmailFilter(null)}
+                className="text-ink-faint underline-offset-2 hover:text-ink hover:underline"
+              >
+                Clear
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -298,6 +335,32 @@ export default function ContactsPanel() {
   );
 }
 
-function Pill({ cls, children }: { cls: string; children: React.ReactNode }) {
-  return <span className={`rounded px-2 py-0.5 font-medium ${cls}`}>{children}</span>;
+// A summary count that doubles as a toggle filter for the live list. Click to
+// show only that bucket; click again (or "Clear") to show everything.
+function FilterPill({
+  cls,
+  active,
+  dimmed,
+  onClick,
+  children,
+}: {
+  cls: string;
+  active: boolean;
+  dimmed: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      title={active ? "Filtering by this — click to clear" : "Click to filter the list"}
+      className={`rounded px-2 py-0.5 font-medium transition ${cls} ${
+        active ? "ring-2 ring-current" : ""
+      } ${dimmed ? "opacity-40 hover:opacity-100" : "hover:opacity-80"}`}
+    >
+      {children}
+    </button>
+  );
 }
