@@ -530,7 +530,15 @@ export function clearContactFlag(contactId: number): void {
     .run(contactId);
 }
 
-/** All flagged contacts joined to contact + company details, newest first. */
+/**
+ * All flagged contacts joined to contact + company details, newest first.
+ *
+ * The Saved board is for real opportunities — people who engaged. A `bounced` or
+ * `unsubscribed` contact never became a conversation, so it's excluded here even
+ * if a flag row exists (e.g. created as a side effect of a reconcile note): a
+ * bounce belongs on `outreach.status` / `email_status`, not the Saved board.
+ * A `stopped` contact (manual decline) stays — that's a genuine outcome.
+ */
 export function listContactFlags(market = ""): FlaggedContact[] {
   return getWritableDb()
     .prepare(
@@ -540,7 +548,9 @@ export function listContactFlags(market = ""): FlaggedContact[] {
        FROM contact_flags f
        JOIN contacts c ON c.id = f.contact_id
        LEFT JOIN companies co ON co.id = c.company_id
+       LEFT JOIN outreach o ON o.contact_id = f.contact_id
        WHERE (@market = '' OR co.market = @market)
+         AND (o.status IS NULL OR o.status NOT IN ('bounced', 'unsubscribed'))
        ORDER BY f.flagged_at DESC`
     )
     .all({ market }) as FlaggedContact[];

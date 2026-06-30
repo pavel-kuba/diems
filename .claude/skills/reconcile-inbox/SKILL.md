@@ -73,10 +73,19 @@ CC) **halts the sequence** — always set an outreach status so no auto-bump fir
 |---|---|---|---|
 | Genuine reply, wants to proceed / agreed | `replied` | `questions` if interview Qs already sent, else `replied` | add to board (set a stage) so Pavel sees it |
 | Polite decline / not interested | `stopped` | `lost` (only if worth keeping) | — |
-| "Remove me" / unsubscribe | `unsubscribed` | `lost` | — |
-| Out-of-office / vacation auto-reply | *(no change)* | — | optionally `noteAppend` |
-| NDR / "no longer here" bounce-back | `bounced` | — | `emailStatus: "invalid"`; named successor → `save-contacts.mjs` |
+| "Remove me" / unsubscribe | `unsubscribed` | **— (do NOT add to Saved)** | not an opportunity |
+| Out-of-office / vacation auto-reply | *(no change)* | **— (do NOT add to Saved)** | leave active; sequence resumes when they're back |
+| NDR / "no longer here" bounce-back | `bounced` | **— (do NOT add to Saved)** | `emailStatus: "invalid"`; departure context → `reason` (logged), not a note; named successor → `save-contacts.mjs` |
 | Interview done / published | `replied` | `won` | — |
+
+> ⚠️ **The Saved board is opportunities only.** Setting `stage`, `note`, or
+> `noteAppend` on a contact that has no flag yet **creates** one and drops them
+> onto the Saved Kanban. Only do that for a genuine reply. For a `bounced`,
+> `unsubscribed`, or out-of-office contact, NEVER set `stage`/`note`/`noteAppend`
+> — a bounce is not a deal. Record it via `outreachStatus` + `emailStatus` and put
+> any human context in the `reason` field (printed in the `apply` log, not
+> persisted). `listContactFlags` now also filters bounced/unsubscribed out of the
+> board as a backstop, but don't rely on it — don't create the flag.
 
 ### 5. Stage decisions, dry-run, then apply
 Write a decisions array to `data/reconcile-<date>.json` (one object per contact;
@@ -112,6 +121,10 @@ his answer). List those explicitly — answering them is his job, not this skill
   follow-up engine stops touching them.
 - **Verify before marking bounced.** The roster shows the last real send; only
   mark `bounced`/`invalid` on a genuine NDR, not a soft auto-reply.
+- **Saved board = opportunities only.** Never set `stage`/`note`/`noteAppend` on a
+  `bounced`/`unsubscribed`/out-of-office contact — it would create a Saved flag for
+  a non-deal. Bounces live on `outreachStatus`+`emailStatus`; context goes in
+  `reason` (logged, not persisted).
 - **Don't overwrite a working email.** A reply from a different address means add
   a contact (via `save-contacts.mjs`), not rewrite the one that delivered.
 - **Surface, don't decide, the human calls.** Won/lost and "is this a yes?" are
