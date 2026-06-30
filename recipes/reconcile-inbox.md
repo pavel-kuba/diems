@@ -70,10 +70,15 @@ sequence** — always set an outreach status so no auto-bump fires.
 |---|---|---|---|
 | Wants to proceed / agreed | `replied` | `questions` if interview Qs already sent, else `replied` | set a stage → adds to board |
 | Polite decline / not interested | `stopped` | `lost` (if worth keeping) | — |
-| "Remove me" / unsubscribe | `unsubscribed` | `lost` | — |
-| Out-of-office / vacation | *(no change)* | — | optional `noteAppend` |
-| NDR / "no longer here" | `bounced` | — | `emailStatus:"invalid"`; successor → `save-contacts.mjs` |
+| "Remove me" / unsubscribe | `unsubscribed` | **— (do NOT add to Saved)** | not an opportunity |
+| Out-of-office / vacation | *(no change)* | **— (do NOT add to Saved)** | leave active; resumes when they're back |
+| NDR / "no longer here" | `bounced` | **— (do NOT add to Saved)** | `emailStatus:"invalid"`; departure context → `reason` (logged); successor → `save-contacts.mjs` |
 | Interview done / published | `replied` | `won` | — |
+
+> ⚠️ **Saved board = opportunities only.** A `stage`/`note`/`noteAppend` on an
+> unflagged contact *creates* a Saved flag. Only do that for a genuine reply —
+> never for a bounce/unsubscribe/OOO (a bounce isn't a deal). The code now also
+> filters bounced/unsubscribed out of the board, but don't lean on it.
 
 ---
 

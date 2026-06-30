@@ -66,18 +66,13 @@ export function isStageId(s: string | null | undefined): s is StageId {
  * Seed a stage from a contact's email-outreach status (used only when the deal
  * has no explicit `stage` yet). The board starts at Replied — saved deals are
  * people already in conversation — so anything not negatively halted floors to
- * "replied". "Interview Q&A" and "Won" have no email-engine equivalent and are
- * only ever reached by dragging.
+ * "replied". Only a manual `stopped` (a decline / no-go) seeds "Lost".
+ * `bounced`/`unsubscribed` aren't opportunities and are excluded from the Saved
+ * board entirely (see `listContactFlags`), so they never reach here. "Interview
+ * Q&A" and "Won" have no email-engine equivalent and are only reached by dragging.
  */
 export function defaultStageFor(status: string | null | undefined): StageId {
-  switch (status) {
-    case "stopped":
-    case "bounced":
-    case "unsubscribed":
-      return "lost";
-    default:
-      return "replied";
-  }
+  return status === "stopped" ? "lost" : "replied";
 }
 
 /** Minimal shape `groupIntoDeals` needs — a superset is fine (kept generic). */
