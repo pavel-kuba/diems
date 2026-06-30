@@ -1,14 +1,21 @@
-# Recipe — git workflow (branch → PR → squash-merge)
+# Recipe — git workflow (branch → PR → merge commit)
 
 How every change lands in diems: a short-lived **branch**, one or two **focused
-commits**, a **pull request**, and a **squash-merge**. `main` stays clean,
-linear, and always-buildable, and every change has a paper trail.
+commits**, a **pull request**, and a **merge commit** (no fast-forward). `main`
+stays always-buildable, every change has a paper trail, and each branch shows up
+as its own line in the git graph.
 
 > diems is a **solo** project, so "review" means *self*-review — eyeball the diff
 > on GitHub (or run `/code-review`) before merging. The branch + PR aren't
-> bureaucracy: they give you a build gate, a clean one-commit-per-change history,
-> and an easy rollback point. **Never commit straight to `main`.** (The history
-> was squashed clean once for sharing — keep it tidy with squash-merges.)
+> bureaucracy: they give you a build gate and an easy rollback point.
+> **Never commit straight to `main`.**
+>
+> We merge with a **real merge commit** (`--merge`), not a squash, so the branch's
+> commits and the fork/join shape stay visible in the git tree. The cost: every
+> commit you make on a branch lands on `main` verbatim — so keep branch commits
+> **small and focused** (no "wip" / "fix typo" noise), since the squash that used
+> to tidy them up is gone. To roll a change back, revert the **merge commit**
+> (`git revert -m 1 <merge-sha>`), not an individual commit.
 
 ## Prerequisites
 - **`gh` CLI authenticated** — `gh auth status` should show your account with the
@@ -28,7 +35,7 @@ git add -p && git commit                        # 3. focused commit(s)
 git push -u origin feat/short-description        # 4. push the branch
 gh pr create --fill                             # 5. open the PR
 gh pr diff                                       # 6. self-review (or /code-review)
-gh pr merge --squash --delete-branch            # 7. squash-merge + tidy up
+gh pr merge --merge --delete-branch             # 7. merge commit (keeps the branch in the tree)
 git switch main && git pull --ff-only           # 8. resync local main
 ```
 
@@ -91,25 +98,33 @@ logical change.
 - For anything non-trivial, run **`/code-review`** and address what it finds.
 - Confirm the checks/build are green.
 
-## Step 7 — squash-merge and clean up
+## Step 7 — merge (a real merge commit) and clean up
 ```bash
-gh pr merge --squash --delete-branch
+gh pr merge --merge --delete-branch
 git switch main && git pull --ff-only
 ```
-**Squash-merge** collapses the branch into a single commit on `main`, so the
-history reads as one clean commit per change. `--delete-branch` removes the
-merged branch locally and on the remote.
+**`--merge`** lands the PR as a **merge commit** with two parents — `main`'s tip
+and the branch tip — so the branch's commits and the fork/join shape stay visible
+in the git tree (instead of being flattened into one line by a squash).
+`--delete-branch` removes the merged branch locally and on the remote; the **graph
+bubble survives** (it's baked into the merge commit's parents) — only the branch
+*label* disappears.
+
+> **Keep branch commits tidy.** Because nothing squashes them, every branch commit
+> shows on `main`. Make small, focused commits and avoid "wip" noise.
+> **Reverting:** undo a whole change with `git revert -m 1 <merge-sha>` (the `-m 1`
+> keeps `main`'s side as the mainline), not by reverting one branch commit.
 
 ---
 
 ## Conventions cheat-sheet
 - **Branch:** `type/short-kebab-description`, off an up-to-date `main`.
 - **Commit:** imperative subject, *why* in the body, `Co-Authored-By` trailer.
-- **PR:** one logical change; squash-merge; delete the branch after.
+- **PR:** one logical change; **merge commit** (`--merge`); delete the branch after.
 - **`main`:** always green (`npm run build`); **never** committed to directly.
 - **Never commit** `data/` (real contact PII) or `.env*` (keys) — gitignored.
 
 ## "But it's a one-line fix…"
 Still branch it. With `gh` the whole cycle is ~four commands and ten seconds, and
-it keeps `main` linear and every change reversible. The only thing that ever goes
-straight onto `main` is nothing.
+it keeps every change reversible and visible as its own branch in the tree. The
+only thing that ever goes straight onto `main` is nothing.

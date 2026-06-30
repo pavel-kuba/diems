@@ -301,8 +301,9 @@ End-to-end runbooks that stitch the scripts + skills together.
   correct the Saved-board stages/notes. Run whenever you've been replying; the
   automated version of the bounce sweep's inbox-triage step.
 - **`recipes/git-workflow.md`** — how every change lands: a `type/short-desc`
-  branch → focused commit(s) → PR → **squash-merge** (`gh`). `main` is never
-  committed to directly and must always pass `npm run build`.
+  branch → focused commit(s) → PR → **merge commit** (`gh pr merge --merge`, so
+  each branch shows in the git tree). `main` is never committed to directly and
+  must always pass `npm run build`.
 
 ## Current data state
 The live companies + contacts ship in **`data/monitoring.db`** (gitignored,
@@ -315,7 +316,8 @@ lists whatever `companies.market` values your DB happens to contain.
 
 ## Conventions
 - **Git workflow:** every change lands via a `type/short-desc` branch + a
-  squash-merged PR (`gh`), **never** committed straight to `main`; commit messages
+  PR landed as a **merge commit** (`gh pr merge --merge`, so each branch stays
+  visible in the git tree), **never** committed straight to `main`; commit messages
   are imperative with a `Co-Authored-By` trailer, and `npm run build` must pass
   before merge. Full runbook: **`recipes/git-workflow.md`**.
 - `.db`/`.db-wal`/`.db-shm` are gitignored. Storage is **local-only**; no accounts.
