@@ -28,6 +28,17 @@ const STEP_NAME: Record<number, string> = {
   3: "Break-up (3/3)",
 };
 
+// Shorter labels for the step-filter chips.
+const STEP_SHORT: Record<number, string> = {
+  1: "Bump",
+  2: "Nudge",
+  3: "Break-up",
+};
+
+// Selected-state variant of the `.chip` class (which has no active style).
+const chipActive =
+  "rounded-full bg-accent px-2.5 py-1 text-[11px] font-medium text-white transition";
+
 export default function FollowupsPanel({
   goToSettings,
 }: {
@@ -40,6 +51,7 @@ export default function FollowupsPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [stepFilter, setStepFilter] = useState<number | null>(null);
   const [sending, setSending] = useState(false);
   const [results, setResults] = useState<SendResult[] | null>(null);
   const [sendTotal, setSendTotal] = useState(0);
@@ -91,9 +103,34 @@ export default function FollowupsPanel({
     load(); // they drop off the due list
   };
 
+  // How many contacts are due for each follow-up step (drives the filter chips).
+  const stepCounts = useMemo(() => {
+    const m = new Map<number, number>();
+    for (const d of due) m.set(d.next_step, (m.get(d.next_step) ?? 0) + 1);
+    return m;
+  }, [due]);
+
+  const stepsPresent = useMemo(
+    () => [...stepCounts.keys()].sort((a, b) => a - b),
+    [stepCounts]
+  );
+
+  // The active step, ignoring a stale filter whose step has since emptied out
+  // (e.g. after sending) — falls back to "All" without needing an effect.
+  const activeStep = stepFilter != null && stepCounts.has(stepFilter) ? stepFilter : null;
+
+  // The rows currently shown — narrowed to one follow-up step when filtering.
+  const filteredDue = useMemo(
+    () =>
+      activeStep == null ? due : due.filter((d) => d.next_step === activeStep),
+    [due, activeStep]
+  );
+
+  // Recipients = selected AND visible, so a step filter can never send to a
+  // hidden contact of a different step.
   const selectedDue = useMemo(
-    () => due.filter((d) => selected.has(d.contact_id)),
-    [due, selected]
+    () => filteredDue.filter((d) => selected.has(d.contact_id)),
+    [filteredDue, selected]
   );
 
   const canSend = !!settings.fromEmail && selectedDue.length > 0 && !sending;
@@ -220,24 +257,61 @@ export default function FollowupsPanel({
 
       {!loading && due.length > 0 && (
         <div className="card overflow-hidden">
+          {stepsPresent.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 border-b border-line bg-paper/70 px-4 py-2 text-xs">
+              <span className="mr-1 text-ink-muted">Follow-up:</span>
+              <button
+                type="button"
+                onClick={() => setStepFilter(null)}
+                className={activeStep == null ? chipActive : "chip"}
+              >
+                All ({due.length})
+              </button>
+              {stepsPresent.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setStepFilter(s)}
+                  className={activeStep === s ? chipActive : "chip"}
+                >
+                  {STEP_SHORT[s] ?? `Step ${s}`} ({stepCounts.get(s)})
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex items-center justify-between border-b border-line bg-paper/70 px-4 py-2 text-xs text-ink-muted">
             <span>
-              {selectedDue.length} of {due.length} selected
+              {selectedDue.length} of {filteredDue.length} selected
             </span>
             <div className="flex gap-1">
               <button
-                onClick={() => setSelected(new Set(due.map((d) => d.contact_id)))}
+                onClick={() =>
+                  setSelected((prev) => {
+                    const next = new Set(prev);
+                    for (const d of filteredDue) next.add(d.contact_id);
+                    return next;
+                  })
+                }
                 className="chip"
               >
                 All
               </button>
-              <button onClick={() => setSelected(new Set())} className="chip">
+              <button
+                onClick={() =>
+                  setSelected((prev) => {
+                    const next = new Set(prev);
+                    for (const d of filteredDue) next.delete(d.contact_id);
+                    return next;
+                  })
+                }
+                className="chip"
+              >
                 None
               </button>
             </div>
           </div>
           <div className="divide-y divide-line/70">
-            {due.map((d) => (
+            {filteredDue.map((d) => (
               <label
                 key={d.contact_id}
                 className="flex cursor-pointer items-start gap-3 px-4 py-2 transition hover:bg-paper/60"
